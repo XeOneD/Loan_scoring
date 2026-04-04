@@ -9,6 +9,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram import Router, F
 
+from aiogram.types import BotCommand
+
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
@@ -206,7 +208,21 @@ async def process_car(message: types.Message, state: FSMContext):
 
 
 
+async def set_main_menu(bot: Bot):
+    main_menu_commands = [
+        BotCommand(command='/start', description='Запустить проверку лимита'),
+        BotCommand(command='/help', description='Как это работает?'),
+        BotCommand(command='/reset', description='Сбросить мои данные')
+    ]
+    await bot.set_my_commands(main_menu_commands)
+
+async def main():
+    init_db()
+
+    await set_main_menu(bot)
+
+    await dp.start_polling(bot)
+
 if __name__ == '__main__':
     import asyncio
-    init_db()
-    asyncio.run(dp.start_polling(bot))
+    asyncio.run(main())
