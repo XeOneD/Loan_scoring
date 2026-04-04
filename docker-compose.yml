@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: scoring_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: adminpassword
+    ports:
+      - "8080:80" # http://10.93.26.97:8080
+
+  bot:
+    build: .
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DB_NAME: scoring_db
+      DB_USER: admin
+      DB_PASS: password
+      DB_HOST: db
+      API_TOKEN: 'REMOVED'
+
+volumes:
+  postgres_data:
