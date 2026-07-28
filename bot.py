@@ -1,5 +1,6 @@
 import psycopg2
 import os
+from dotenv import load_dotenv
 
 import logging
 import joblib
@@ -11,14 +12,15 @@ from aiogram import Router, F
 
 from aiogram.types import BotCommand
 
+load_dotenv()
+API_TOKEN = os.getenv("BOT_TOKEN")
+
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
 model = joblib.load("model.pkl")
 
 
-
-API_TOKEN = '8559204272:AAHWokVvGx_BeoeXvihx5sSDxj2mJwSLmqo'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 router = Router()
