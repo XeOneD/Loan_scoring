@@ -12,7 +12,8 @@ Product context:
 •	Product Idea: An intelligent Telegram bot that instantly predicts the probability of loan approval based on the ML model and saves the application history in a reliable database.  
 
 Features:  
-•	How it was built: * Backend: Python (Aiogram 3.x) for the logic of the bot.  
+•	How it was built:  
+o Backend: Python (Aiogram 3.x) for the logic of the bot.  
 o	Machine Learning: A logistic regression model (Scikit-learn) uploaded via Joblib.  
 o	Database: PostgreSQL for storing user data.  
 o	Infrastructure: Containerization via Docker Compose (3 services: Bot, DB, pgAdmin).  
