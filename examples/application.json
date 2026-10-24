@@ -1,0 +1,16 @@
+{
+  "birth_date": "1990-05-17",
+  "income": 1450,
+  "limit": 3000,
+  "term": 36,
+  "debt_to_income": 0.28,
+  "education": "Среднее специальное",
+  "family_status": 2,
+  "children": 1,
+  "industry": "Торговля",
+  "region": "Гомельская область",
+  "settlement": "ГОМЕЛЬ",
+  "credit_history_rating": "B2",
+  "bureau_score": 210,
+  "telecom_score": null
+}
