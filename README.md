@@ -1,47 +1,144 @@
-Automated Loan Approval System
+# Кредитный скоринг заявок (Application PD)
 
-The bot for approval the loan to users based on their personal information. Bot uses the prediction of regression model. User can't get the loan twice, the system is prevent such action.
+Модель оценивает вероятность того, что заёмщик допустит просрочку 90+ дней, по данным, известным
+в момент подачи заявки. Результат — PD, скор в баллах, решение (одобрить / ручная проверка / отказ)
+и причины низкого скора.
 
-<img width="1128" height="1052" alt="image" src="https://github.com/user-attachments/assets/d909243b-e187-4ba8-84de-92a30b8131b2" />
-<img width="146" height="182" alt="image" src="https://github.com/user-attachments/assets/0b8ce9b3-c990-4359-9a82-c72acda4e69c" />
-<img width="536" height="344" alt="image" src="https://github.com/user-attachments/assets/0b0f43f2-ca6c-4004-b859-f367ddf5ae65" />
+## Данные
 
-Product context:  
-•	End-user: Credit departments of microfinance organizations or banks seeking to automate the initial processing of applications.  
-•	Problem Solved: High time costs for manual scoring of clients and the risk of human error in assessing solvency.  
-•	Product Idea: An intelligent Telegram bot that instantly predicts the probability of loan approval based on the ML model and saves the application history in a reliable database.  
+`data/bank_credit_scoring.csv` — 18 420 выданных потребительских кредитов белорусского банка
+(регионы Беларуси, скоринг оператора velcom). Источник датасета: _укажите ссылку_.
 
-Features:  
-•	How it was built:  
-o Backend: Python (Aiogram 3.x) for the logic of the bot.  
-o	Machine Learning: A logistic regression model (Scikit-learn) uploaded via Joblib.  
-o	Database: PostgreSQL for storing user data.  
-o	Infrastructure: Containerization via Docker Compose (3 services: Bot, DB, pgAdmin).  
-•	Version 1 vs Version 2:  
-o	V1: A simple bot using SQLite (a local file) and basic polling.  
-o	V2: The transition to the industrial PostgreSQL DBMS, the introduction of an anti-fraud system (checking the telegram_id in the database) and deployment to a remote virtual machine (VM).  
+| Что есть | Колонки |
+|---|---|
+| Анкета | дата рождения, пол, образование, семейное положение, дети, отрасль, регион, населённый пункт |
+| Заявка | лимит, срок, доход, показатель долговой нагрузки (ПДН) |
+| Внешние данные | рейтинг кредитной истории (A1…E3), балл кредитного бюро, скоринг оператора связи |
+| После выдачи | текущая задолженность, дни просрочки |
 
-Usage:  
-•	"We launch the bot, press the Menu button."  
-•	"We take a survey: enter the first name, last name, age, income, education and car."  
-•	"The bot accesses the ML model and issues a verdict."  
-•	"We show the browser with the pgAdmin open: the user's data instantly appeared in in the applications table."  
-•	"We try to press /start again — the bot recognizes us and does not allow us to fill out the questionnaire again."  
+**Целевая переменная:** просрочка ≥ 90 дней, определение дефолта по Базелю. Таких кредитов 4,1%.
+Задолженность и дни просрочки известны только после выдачи, поэтому в признаки они не попадают.
 
-Deployment:  
-The VM should run on the Ubuntu 24.04  
-On the VM should be cloned the repopsitory with all the required stuff  
+## Валидация по времени
 
-1. Clone repository  
-2. Go to reposetory on the VM  
-3. Use this command to run contaners with the bot: sudo docker-compose up --build -d  
-4. Check that containers are Up: sudo docker ps  
-5. Use this command to stop contaners with the bot: sudo docker-compose down  
-6. Open the bot in Telegram: @XeOneD_bot  
-7. Start using the bot  
-8. Open http://10.93.26.97:8080 in browser  
-9. Use login: admin@admin.com and password: adminpassword to enter the pgAdmin  
-10. Create a connection with given parameters:  
-  Host name/address: db  
-  Username: admin  
-  Password: password  
+Даты выдачи в данных нет, но её заменяет `CLIENTID`: номера выдаются по порядку, и у бо́льших номеров
+меньше погашено долга. Поэтому:
+
+- **разбиение по CLIENTID:** обучение на старых клиентах (60%), валидация (10%) и тест (20%) на более
+  новых. Так модель проверяется в тех же условиях, в которых будет работать после внедрения;
+- **самые новые 10% клиентов исключены:** их кредиты ещё не успели дойти до 90 дней просрочки, доля
+  дефолтов там 1,8% против 5,3% на тесте. С ними целевая была бы искажена;
+- все кредиты одного клиента попадают в одну часть.
+
+Валидация используется для калибровки, выбора числа деревьев и проверки стабильности признаков.
+Тест не участвует ни в одном решении.
+
+## Модели
+
+**Скоркарта (основная модель).** Стандарт розничного кредитования:
+
+1. Биннинг признаков. В каждом бине не меньше 5% наблюдений, у числовых признаков WoE монотонен
+   (без зигзагов, которые нельзя объяснить), редкие категории объединены.
+2. Отбор: IV ≥ 0.02; из пары коррелирующих признаков (|r| > 0.7) остаётся более сильный. Все
+   коэффициенты положительны: признак с отрицательным коэффициентом исключается, это симптом
+   мультиколлинеарности.
+3. Логистическая регрессия на WoE и Platt-калибровка на валидации. Калибровка — линейное преобразование
+   логита, поэтому таблица баллов сохраняется.
+4. Перевод в баллы: 600 баллов = шансы 50:1, +20 баллов удваивают шансы. Полная таблица —
+   [`reports/scorecard.md`](reports/scorecard.md).
+
+**Градиентный бустинг (претендент).** `HistGradientBoostingClassifier` — гистограммный бустинг, как
+в LightGBM, с нативными категориями и пропусками. Монотонные ограничения заданы там, где направление
+риска очевидно и подтверждено данными (доход, балл бюро, лимит/доход). Число деревьев подобрано по
+log loss на валидации, затем Platt-калибровка.
+
+**Исключённые признаки:**
+- **пол** — защищённый признак, решение о кредите не должно от него зависеть;
+- **ПДН** — PSI между обучением и валидацией 0.62, распределение сильно сдвинулось: максимум
+  был 1.21, на новых клиентах — 0.51. Похоже на ограничение ПДН, введённое в кредитной политике. Риск
+  у этого признака ещё и падает с ростом нагрузки — эффект отбора (высокую нагрузку одобряли только
+  надёжным клиентам). Признак исключается автоматически по правилу PSI > 0.25 на валидации.
+
+## Результаты на тесте
+
+3 684 заявки, 196 дефолтов. Полный отчёт — [`reports/report.md`](reports/report.md).
+
+| Модель | Gini [95% ДИ] | KS | Brier |
+|---|---|---|---|
+| Балл кредитного бюро (бейзлайн) | 0.235 [0.161–0.305] | 0.200 | — |
+| **Скоркарта** | **0.478 [0.411–0.544]** | 0.344 | 0.0482 |
+| Градиентный бустинг | 0.459 [0.388–0.523] | 0.349 | 0.0485 |
+
+- Скоркарта вдвое сильнее балла бюро: собственные данные банка (доход, образование, отрасль, регион,
+  скоринг оператора) добавляют много информации.
+- Бустинг не лучше скоркарты (разница внутри доверительного интервала) и сильнее переобучается:
+  Gini 0.78 на обучении против 0.46 на тесте, у скоркарты 0.60 против 0.48. При ~400 дефолтах
+  в обучении сложной модели не на чем выигрывать, а скоркарта ещё и объяснима. Основная модель —
+  скоркарта.
+- С ПДН скоркарта давала 0.494 на тесте. 1,6 пункта Gini — цена устойчивости к смене политики.
+- PSI скора между обучением и тестом 0.028 — стабилен. Калибровка близка к факту, кроме нижнего квинтиля
+  (0,7% прогноз против 0,1% факта — модель там консервативна).
+
+**Стратегия отсечения.** При одобрении 80% заявок доля дефолтов среди одобренных падает с 5,3% до 3,4%,
+отсекается 48% дефолтов. Пороги в API выбраны по валидации: 70% заявок одобряются автоматически, 20%
+уходят на ручную проверку, 10% — отказ.
+
+<p>
+  <img src="reports/figures/roc.png" width="45%">
+  <img src="reports/figures/approval_vs_bad_rate.png" width="50%">
+</p>
+
+## Запуск
+
+```bash
+pip install -r requirements.txt
+python -m scoring.train                   # обучение и отчёт (~20 секунд)
+uvicorn scoring.api:app --port 8000
+curl -s localhost:8000/score -H 'Content-Type: application/json' -d @examples/application.json
+```
+
+```json
+{"pd": 0.0309, "score": 587, "decision": "approve",
+ "reasons": [{"feature": "telecom_status", "value": "not_requested", "points_lost": 38.4},
+             {"feature": "industry", "value": "Торговля", "points_lost": 23.4},
+             {"feature": "bureau_score", "value": "210", "points_lost": 22.5}]}
+```
+
+`reasons` — признаки, по которым заявка недобрала больше всего баллов до лучшего значения. Так формируются
+причины отказа.
+
+Через Docker (модель обучается при сборке):
+
+```bash
+docker build -t credit-scoring . && docker run -p 8000:8000 credit-scoring
+```
+
+Тесты: `pip install -r requirements-dev.txt && pytest`.
+
+## Структура
+
+```
+scoring/
+  data.py       загрузка, целевая, разбиение по времени
+  features.py   признаки заявки (одни и те же для обучения и API)
+  woe.py        биннинг и WoE
+  scorecard.py  скоркарта: отбор, логрегрессия, калибровка, баллы, причины
+  gbm.py        градиентный бустинг
+  metrics.py    Gini, KS, PSI, бутстреп, таблица отсечения, калибровка
+  train.py      обучение и отчёт
+  service.py    скоринг заявок сохранённой моделью
+  api.py        FastAPI
+reports/        отчёт, таблица баллов, графики
+examples/       пример заявки
+tests/
+```
+
+## Ограничения
+
+- **Reject inference.** В данных только одобренные заявки, поведение отказников неизвестно. Модель
+  оценивает риск среди тех, кого банк и так одобрял бы. Отсюда и обратная зависимость риска от ПДН.
+- **Нет дат.** Возраст считается на 01.01.2024, время восстановлено по CLIENTID. Если номера выдавались
+  не строго по порядку, разбиение по времени приблизительное.
+- **Мало дефолтов:** около 200 на тесте, интервалы Gini широкие (±0.07).
+- **Пороги решения** выбраны по доле одобрения, а не по прибыли: для экономического порога нужны
+  маржа и LGD, которых в данных нет.

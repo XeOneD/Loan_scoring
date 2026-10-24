@@ -1,2 +1,9 @@
+models/
+reports/metrics.json
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
 .env
-data
+.idea/
+.ipynb_checkpoints/
