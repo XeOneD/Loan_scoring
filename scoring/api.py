@@ -31,7 +31,7 @@ class Application(BaseModel):
     settlement: str | None = None
     credit_history_rating: str | None = Field(None, description="Рейтинг кредитной истории, A1…E3")
     bureau_score: float | None = Field(None, description="Балл кредитного бюро")
-    telecom_score: float | None = Field(None, description="Скоринг оператора связи; -2 — абонент не найден")
+    telecom_score: float | None = Field(None, description="Скоринг оператора связи; -2 - абонент не найден")
 
 
 class Reason(BaseModel):
