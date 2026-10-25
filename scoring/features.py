@@ -5,7 +5,7 @@ import re
 import numpy as np
 import pandas as pd
 
-REFERENCE_DATE = pd.Timestamp("2024-01-01")  # даты заявки нет; возраст — на эту дату
+REFERENCE_DATE = pd.Timestamp("2024-01-01")  # даты заявки нет; возраст - на эту дату
 
 NUMERIC = [
     "age",
@@ -67,7 +67,7 @@ def build(df: pd.DataFrame) -> pd.DataFrame:
     out["bureau_score"] = df["bureau_score"]
     out["children"] = df["children"]
 
-    # -2 — абонент не найден у оператора, пусто — запрос не делали. Это разные ситуации.
+    # -2 - абонент не найден у оператора, пусто - запрос не делали. Это разные ситуации.
     telecom = df["telecom_score"]
     out["telecom_score"] = telecom.where(telecom >= 0)
     out["telecom_status"] = np.select([telecom.isna(), telecom < 0], ["not_requested", "not_found"], "found")

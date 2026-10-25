@@ -8,14 +8,14 @@ def gini(y, p) -> float:
 
 
 def ks(y, p) -> float:
-    """Колмогоров–Смирнов: максимальное расхождение распределений скора у плохих и хороших."""
+    """Колмогоров-Смирнов: максимальное расхождение распределений скора у плохих и хороших."""
     fpr, tpr, _ = roc_curve(y, p)
     return float(np.max(tpr - fpr))
 
 
 def bootstrap_ci(y, p, metric=gini, n: int = 1000, seed: int = 0, alpha: float = 0.05) -> tuple[float, float]:
     """Доверительный интервал метрики: на тесте около 200 дефолтов, и разница
-    в 2–3 пункта Gini между моделями может оказаться шумом."""
+    в 2-3 пункта Gini между моделями может оказаться шумом."""
     y, p = np.asarray(y), np.asarray(p)
     rng = np.random.default_rng(seed)
     values = []
@@ -44,7 +44,7 @@ def summary(y, p, probabilities: bool = True) -> dict:
 
 
 def psi(expected, actual, bins: int = 10) -> float:
-    """Population Stability Index. < 0.1 — стабильно, 0.1–0.25 — сдвиг, > 0.25 — сильный сдвиг."""
+    """Population Stability Index. < 0.1 - стабильно, 0.1-0.25 - сдвиг, > 0.25 - сильный сдвиг."""
     expected, actual = np.asarray(expected, float), np.asarray(actual, float)
     edges = np.unique(np.quantile(expected, np.linspace(0, 1, bins + 1)[1:-1]))
     e = np.bincount(np.searchsorted(edges, expected), minlength=len(edges) + 1) / len(expected)

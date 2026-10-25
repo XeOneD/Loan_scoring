@@ -24,7 +24,7 @@ MODELS = Path("models")
 REPORTS = Path("reports")
 PSI_MAX = 0.25
 # Пороги решения: доли заявок валидации, которые одобряются автоматически
-# и уходят на ручную проверку. Остальные — отказ.
+# и уходят на ручную проверку. Остальные - отказ.
 AUTO_APPROVE_SHARE = 0.7
 REVIEW_SHARE = 0.2
 
@@ -141,8 +141,8 @@ def render(r: dict, cutoffs: pd.DataFrame, calibration: pd.DataFrame) -> str:
     ]
     for name, m in r["results"].items():
         lo, hi = m["gini_ci"]
-        brier = f"{m['brier']:.4f}" if "brier" in m else "—"
-        lines.append(f"| {name} | {m['gini']:.3f} [{lo:.3f}–{hi:.3f}] | {m['ks']:.3f} | {m['pr_auc']:.3f} | {brier} |")
+        brier = f"{m['brier']:.4f}" if "brier" in m else "-"
+        lines.append(f"| {name} | {m['gini']:.3f} [{lo:.3f}-{hi:.3f}] | {m['ks']:.3f} | {m['pr_auc']:.3f} | {brier} |")
 
     lines += ["", "Gini на обучении и валидации (разрыв с тестом показывает переобучение):", ""]
     lines += ["| Модель | Обучение | Валидация |", "|---|---|---|"]

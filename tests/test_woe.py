@@ -19,7 +19,7 @@ def test_numeric_woe_is_monotonic_and_bins_are_large_enough():
     binner = WoEBinner(min_share=0.05).fit(X, y, categorical=["city"])
     table = binner.bins_["income"].table
     numeric = table[table["bin"] != "missing"]
-    assert (np.diff(numeric["woe"]) < 0).all()  # доход выше — риск ниже
+    assert (np.diff(numeric["woe"]) < 0).all()  # доход выше - риск ниже
     assert (numeric["share"] >= 0.05).all()
     assert "missing" in set(table["bin"])
 
